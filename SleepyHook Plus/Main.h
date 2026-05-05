@@ -14,6 +14,8 @@
 #include <map>
 #include <deque>
 #include <intrin.h>
+#include <chrono>
+#include <thread>
 #pragma comment(lib, "ws2_32.lib")
 
 #include <wrect.h>

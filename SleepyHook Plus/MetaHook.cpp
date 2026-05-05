@@ -45,7 +45,6 @@ void* MH_GetClassFuncAddr(...);
 DWORD MH_GetModuleBase(HMODULE hModule);
 DWORD MH_GetModuleSize(HMODULE hModule);
 void* MH_SearchPattern(void* pStartSearch, DWORD dwSearchLen, char* pPattern, DWORD dwPatternLen);
-void MH_WriteDWORD(void* pAddress, DWORD dwValue);
 DWORD MH_ReadDWORD(void* pAddress);
 DWORD MH_WriteMemory(void* pAddress, BYTE* pData, DWORD dwDataSize);
 DWORD MH_ReadMemory(void* pAddress, BYTE* pData, DWORD dwDataSize);

@@ -95,6 +95,36 @@ namespace HookFuncs
 	{
 		return oHolePunchFuncSetServerInfo(m_iHostIPAddress, m_iHostPort);
 	}
+
+	ULONGLONG m_ullLastSendOptionPacketTime = GetTickCount64();
+	typedef int(__thiscall* COptionsDialog__OnCommand_t)(void* thisptr, char* szButtonName); // aka PropertyDialog::OnCommand
+	COptionsDialog__OnCommand_t oCOptionsDialog__OnCommand = nullptr;
+	int __fastcall COptionsDialog__OnCommand(void* thisptr, void* edx, char* szButtonName)
+	{
+		// 56 57 8B 7C 24 ? 68 ? ? ? ? 8B F1 57 E8 ? ? ? ? 83 C4 ? 85 C0 75 ? 8B 06 8B CE FF 90 ? ? ? ? 8B 16
+		auto ret = oCOptionsDialog__OnCommand(thisptr, szButtonName);
+		auto ullNow = GetTickCount64();
+		if ((strcmp(szButtonName, "Apply") == 0 || strcmp(szButtonName, "OK") == 0) && ullNow - m_ullLastSendOptionPacketTime > 300)
+		{
+			reinterpret_cast<void(__cdecl*)()>(0x371786D0)();
+			m_ullLastSendOptionPacketTime = ullNow;
+		}
+		return ret;
+	}
+}
+
+DWORD WINAPI GameUIPatcher()
+{
+	uintptr_t dwGameUI = NULL;
+	while (!dwGameUI)
+	{
+		dwGameUI = (uintptr_t)GetModuleHandleA("GameUI.dll");
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	HookFuncs::oCOptionsDialog__OnCommand = reinterpret_cast<HookFuncs::COptionsDialog__OnCommand_t>(dwGameUI + 0x1E3220);
+	// Vtable hook
+	MH_WriteDWORD((void*)(dwGameUI + 0x2670CC), (DWORD)&HookFuncs::COptionsDialog__OnCommand);
+	return 1;
 }
 
 void GamePatcher() 
@@ -125,5 +155,5 @@ void GamePatcher()
 	MH_InlineHook((void*)0x372FBDB0, CSONMWrapper::COutPacket__SendLoginPacket, (void*&)CSONMWrapper::oCOutPacket__SendLoginPacket);
 	WriteBytes((void*)0x372207B0, (void*)"\x31\xC0", 2);
 
-
+	CreateThread(nullptr, NULL, (LPTHREAD_START_ROUTINE)GameUIPatcher, nullptr, 0, nullptr);
 }

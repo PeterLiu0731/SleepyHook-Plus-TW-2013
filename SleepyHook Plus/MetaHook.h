@@ -59,6 +59,7 @@ void MH_Init(const char* pszGameName);
 void MH_LoadEngine(HMODULE hModule);
 void MH_ExitGame(int iResult);
 void MH_Shutdown(void);
+void MH_WriteDWORD(void* pAddress, DWORD dwValue);
 hook_t* MH_InlineHook(void* pOldFuncAddr, void* pNewFuncAddr, void*& pCallBackFuncAddr);
 
 #include <IFileSystem.h>
