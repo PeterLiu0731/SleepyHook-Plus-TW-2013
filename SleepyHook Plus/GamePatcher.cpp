@@ -113,14 +113,20 @@ namespace HookFuncs
 	}
 }
 
-DWORD WINAPI GameUIPatcher()
+DWORD WINAPI SubModulePatcher()
 {
 	uintptr_t dwGameUI = NULL;
-	while (!dwGameUI)
+	uintptr_t dwClient = NULL;
+	while (true)
 	{
 		dwGameUI = (uintptr_t)GetModuleHandleA("GameUI.dll");
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		dwClient = (uintptr_t)GetModuleHandleA("client.dll");
+		if (dwGameUI && dwClient)
+			break;
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
+	// Waiting for memory initialization
+	std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 	HookFuncs::oCOptionsDialog__OnCommand = reinterpret_cast<HookFuncs::COptionsDialog__OnCommand_t>(dwGameUI + 0x1E3220);
 	// Vtable hook
 	MH_WriteDWORD((void*)(dwGameUI + 0x2670CC), (DWORD)&HookFuncs::COptionsDialog__OnCommand);
@@ -155,5 +161,5 @@ void GamePatcher()
 	MH_InlineHook((void*)0x372FBDB0, CSONMWrapper::COutPacket__SendLoginPacket, (void*&)CSONMWrapper::oCOutPacket__SendLoginPacket);
 	WriteBytes((void*)0x372207B0, (void*)"\x31\xC0", 2);
 
-	CreateThread(nullptr, NULL, (LPTHREAD_START_ROUTINE)GameUIPatcher, nullptr, 0, nullptr);
+	CreateThread(nullptr, NULL, (LPTHREAD_START_ROUTINE)SubModulePatcher, nullptr, 0, nullptr);
 }
