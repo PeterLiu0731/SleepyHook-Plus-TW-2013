@@ -95,6 +95,32 @@ void FillGameSharedMemroy()
 	}
 }
 
+void SetAffinity()
+{
+	HANDLE hProcess = GetCurrentProcess();
+	DWORD_PTR processAffinityMask = 0;
+	DWORD_PTR systemAffinityMask = 0;
+	if (GetProcessAffinityMask(hProcess, &processAffinityMask, &systemAffinityMask))
+	{
+		if (processAffinityMask && systemAffinityMask)
+		{
+			// 找到CPU0
+			DWORD_PTR bit;
+			int i;
+			for (i = 0; i < sizeof(DWORD_PTR) * 8; i++)
+			{
+				bit = (DWORD_PTR)1 << i;
+				if (systemAffinityMask & bit)
+					break;
+			}
+			// 清除CPU0
+			processAffinityMask &= ~bit;
+			if (processAffinityMask)
+				SetProcessAffinityMask(hProcess, processAffinityMask);
+		}
+	}
+}
+
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	HANDLE hObject = NULL;
@@ -158,6 +184,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 			registry->WriteInt("ScreenBPP", 16);
 		}
 	}
+
+	SetAffinity();
 
 	while (true)
 	{
