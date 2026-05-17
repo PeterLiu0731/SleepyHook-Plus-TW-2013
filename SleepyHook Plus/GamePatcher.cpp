@@ -181,18 +181,47 @@ namespace HookFuncs
 	}
 
 	static bool m_bWasChatting = false;
+	static bool m_bIMEDisabled = false;
+	static bool m_bWasInGame = false;
 	LRESULT(__thiscall* oCGame__WndProc)(void* thisptr, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 	LRESULT __fastcall CGame__WndProc(void* thisptr, void* edx, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 	{
-		LRESULT ret = oCGame__WndProc(thisptr, hWnd, Msg, wParam, lParam);
 		bool bCursorShowAndInChatInput = *(bool*)(0x375B6E81 + 0x01);
 		bool bInGame = *(int*)(0x38F7F8A0) >= 5;
 
+		if (bInGame && !bCursorShowAndInChatInput)
+		{
+			switch (Msg)
+			{
+			case WM_IME_STARTCOMPOSITION:
+			case WM_IME_ENDCOMPOSITION:
+			case WM_IME_COMPOSITION:
+			case WM_IME_SETCONTEXT:
+				return 0;
+			}
+		}
+
+		LRESULT ret = oCGame__WndProc(thisptr, hWnd, Msg, wParam, lParam);
+
+		if (Msg == WM_ACTIVATEAPP && !wParam)
+			m_bIMEDisabled = false;
+
+		if (bInGame && !m_bWasInGame)
+			m_bIMEDisabled = false;
+
+		m_bWasInGame = bInGame;
+
 		if (bCursorShowAndInChatInput && !m_bWasChatting)
+		{
 			SetIMEEnabled(hWnd, true);
+			m_bIMEDisabled = false;
+		}
 
 		if (!bCursorShowAndInChatInput && m_bWasChatting && bInGame)
+		{
 			SetIMEEnabled(hWnd, false);
+			m_bIMEDisabled = true;
+		}
 
 		m_bWasChatting = bCursorShowAndInChatInput;
 
@@ -202,15 +231,21 @@ namespace HookFuncs
 			{
 			case WM_ACTIVATEAPP:
 				if (wParam)
+				{
 					SetIMEEnabled(hWnd, false);
+					m_bIMEDisabled = true;
+				}
 				break;
 			case WM_INPUTLANGCHANGE:
-			case WM_IME_STARTCOMPOSITION:
 				SetIMEEnabled(hWnd, false);
+				m_bIMEDisabled = true;
 				break;
 			case WM_IME_NOTIFY:
 				if (wParam == IMN_SETOPENSTATUS)
+				{
 					SetIMEEnabled(hWnd, false);
+					m_bIMEDisabled = true;
+				}
 				break;
 			}
 		}
