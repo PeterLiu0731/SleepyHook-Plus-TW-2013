@@ -14,6 +14,22 @@ void WriteBytes(PVOID address, void* val, int bytes)
 	VirtualProtect(address, bytes, d, &ds);
 }
 
+bool SetIMEEnabled(HWND hwnd_, bool enabled)
+{
+	HIMC himc = ImmGetContext(hwnd_);
+	if (!himc)
+		return false;
+	BOOL current = ImmGetOpenStatus(himc);
+	if (current == (enabled ? TRUE : FALSE))
+	{
+		ImmReleaseContext(hwnd_, himc);
+		return true;
+	}
+	BOOL ok = ImmSetOpenStatus(himc, enabled ? TRUE : FALSE);
+	ImmReleaseContext(hwnd_, himc);
+	return ok == TRUE;
+}
+
 namespace RankLocationFix
 {
 	unsigned int(__thiscall* oRankSetPlayerInfo)(void* thisptr, int a2);
@@ -164,6 +180,44 @@ namespace HookFuncs
 		return oHolePunchFuncSetServerInfo(m_iHostIPAddress, m_iHostPort);
 	}
 
+	static bool m_bWasChatting = false;
+	LRESULT(__thiscall* oCGame__WndProc)(void* thisptr, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+	LRESULT __fastcall CGame__WndProc(void* thisptr, void* edx, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+	{
+		LRESULT ret = oCGame__WndProc(thisptr, hWnd, Msg, wParam, lParam);
+		bool bCursorShowAndInChatInput = *(bool*)(0x375B6E81 + 0x01);
+		bool bInGame = *(int*)(0x38F7F8A0) >= 5;
+
+		if (bCursorShowAndInChatInput && !m_bWasChatting)
+			SetIMEEnabled(hWnd, true);
+
+		if (!bCursorShowAndInChatInput && m_bWasChatting && bInGame)
+			SetIMEEnabled(hWnd, false);
+
+		m_bWasChatting = bCursorShowAndInChatInput;
+
+		if (bInGame && !bCursorShowAndInChatInput)
+		{
+			switch (Msg)
+			{
+			case WM_ACTIVATEAPP:
+				if (wParam)
+					SetIMEEnabled(hWnd, false);
+				break;
+			case WM_INPUTLANGCHANGE:
+			case WM_IME_STARTCOMPOSITION:
+				SetIMEEnabled(hWnd, false);
+				break;
+			case WM_IME_NOTIFY:
+				if (wParam == IMN_SETOPENSTATUS)
+					SetIMEEnabled(hWnd, false);
+				break;
+			}
+		}
+
+		return ret;
+	}
+
 	ULONGLONG m_ullLastSendOptionPacketTime = GetTickCount64();
 	typedef int(__thiscall* COptionsDialog__OnCommand_t)(void* thisptr, char* szButtonName); // aka PropertyDialog::OnCommand
 	COptionsDialog__OnCommand_t oCOptionsDialog__OnCommand = nullptr;
@@ -225,6 +279,7 @@ void GamePatcher()
 	MH_InlineHook((void*)0x371F4470, HookFuncs::HolePunchFuncSetServerInfo, (void*&)HookFuncs::oHolePunchFuncSetServerInfo);
 
 	MH_InlineHook((void*)0x372FFB10, RankLocationFix::RankSetPlayerInfo, (void*&)RankLocationFix::oRankSetPlayerInfo);
+	MH_InlineHook((void*)0x371EDDF0, HookFuncs::CGame__WndProc, (void*&)HookFuncs::oCGame__WndProc);
 
 	MH_InlineHook((void*)0x37442A60, CSONMWrapper::AuthUser, (void*&)CSONMWrapper::oCSONMWrapper__AuthUser);
 	MH_InlineHook((void*)0x37442810, CSONMWrapper::CheckIsAge18, (void*&)CSONMWrapper::oCheckIsAge18);
